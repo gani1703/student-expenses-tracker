@@ -251,10 +251,22 @@ input,select,textarea{font-family:inherit}
 }
 .cal-day.other-month{opacity:.35}
 .cal-day.has-spend{border-bottom:3px solid var(--primary)}
-.cal-amount{font-size:.68rem;color:var(--primary);font-weight:800;margin-top:2px;line-height:1}
+.cal-day.cal-low{background:#f0fdf4 !important;border-bottom:3px solid #22c55e}
+.cal-day.cal-low .cal-amount{color:#16a34a}
+.cal-day.cal-mid{background:#fffbeb !important;border-bottom:3px solid #f59e0b}
+.cal-day.cal-mid .cal-amount{color:#d97706}
+.cal-day.cal-high{background:#fef2f2 !important;border-bottom:3px solid #ef4444}
+.cal-day.cal-high .cal-amount{color:#dc2626}
+.cal-amount{font-size:.68rem;font-weight:800;margin-top:2px;line-height:1}
 .cal-dot{width:5px;height:5px;border-radius:50%;background:var(--primary);margin-top:2px}
 .month-nav{display:flex;align-items:center;gap:.5rem}
 .month-label{font-size:1rem;font-weight:800;min-width:140px;text-align:center}
+.cal-legend{display:flex;gap:1rem;padding:.75rem 0 .25rem;justify-content:flex-end}
+.leg-item{display:flex;align-items:center;gap:.35rem;font-size:.75rem;font-weight:700;color:var(--text-secondary)}
+.leg-dot{width:10px;height:10px;border-radius:50%;display:inline-block}
+.btn-link{background:none;border:none;color:var(--primary);font-size:.82rem;font-weight:700;cursor:pointer;padding:0;text-decoration:underline}
+.quick-cat-form{margin-bottom:.4rem}
+.quick-cat-inputs{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;margin-top:.5rem}
 
 /* ── SUBSCRIPTIONS ── */
 .sub-summary-row{margin-bottom:1.5rem}

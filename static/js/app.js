@@ -215,18 +215,44 @@ async function renderCalendar() {
   const firstDay = new Date(calYear, calMonth, 1).getDay();
   const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
   const today = todayStr();
+
+  // Calculate thresholds for color coding
+  const amounts = Object.values(daily).filter(v => v > 0);
+  const avgAmt = amounts.length ? amounts.reduce((a, b) => a + b, 0) / amounts.length : 0;
+  const highThreshold = avgAmt * 1.4;
+  const lowThreshold = avgAmt * 0.6;
+
+  function calColorClass(amt) {
+    if (!amt) return '';
+    if (amt >= highThreshold) return ' cal-high';
+    if (amt >= lowThreshold) return ' cal-mid';
+    return ' cal-low';
+  }
+
   let html = '';
   for (let i = 0; i < firstDay; i++) html += '<div class="cal-day other-month"></div>';
   for (let d = 1; d <= daysInMonth; d++) {
     const ds = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
     const amt = daily[ds];
     const isToday = ds === today;
-    html += `<div class="cal-day${isToday ? ' today' : ''}${amt ? ' has-spend' : ''}" data-date="${ds}">
+    const colorCls = calColorClass(amt);
+    html += `<div class="cal-day${isToday ? ' today' : ''}${amt ? ' has-spend' : ''}${colorCls}" data-date="${ds}">
       <span class="cal-date">${d}</span>
       ${amt ? `<span class="cal-amount">${fmt(amt)}</span>` : ''}
     </div>`;
   }
   grid.innerHTML = html;
+
+  // Legend
+  let legend = document.getElementById('cal-legend');
+  if (!legend) {
+    legend = document.createElement('div');
+    legend.id = 'cal-legend';
+    legend.className = 'cal-legend';
+    document.querySelector('.calendar-card').appendChild(legend);
+  }
+  legend.innerHTML = `<span class="leg-item"><span class="leg-dot" style="background:#22c55e"></span>Low</span><span class="leg-item"><span class="leg-dot" style="background:#f59e0b"></span>Moderate</span><span class="leg-item"><span class="leg-dot" style="background:#ef4444"></span>High</span>`;
+
   grid.querySelectorAll('.cal-day[data-date]').forEach(el => {
     el.addEventListener('click', () => openDayModal(el.dataset.date));
   });
@@ -289,10 +315,30 @@ async function loadAnalytics() {
   renderPieChart('ana-pie-chart', data.categories);
   renderBarChart('ana-bar-chart', data.weekly);
   const total = data.categories.reduce((s, c) => s + c.total, 0);
+
+  // Day analysis
+  const dailyEntries = Object.entries(data.daily || {});
+  let mostDay = '—', leastDay = '—', mostAmt = 0, leastAmt = Infinity;
+  dailyEntries.forEach(([d, v]) => {
+    if (v > mostAmt)  { mostAmt = v;  mostDay = d; }
+    if (v < leastAmt) { leastAmt = v; leastDay = d; }
+  });
+  if (!dailyEntries.length) { leastDay = '—'; leastAmt = 0; }
+
   document.getElementById('analytics-stats-row').innerHTML = `
     <div class="card stat-card"><div class="stat-icon">💸</div><div class="stat-label">Total Spent</div><div class="stat-value">${fmt(total)}</div></div>
-    <div class="card stat-card"><div class="stat-icon">📋</div><div class="stat-label">Categories</div><div class="stat-value">${data.categories.length}</div></div>
-    <div class="card stat-card"><div class="stat-icon">📊</div><div class="stat-label">Daily Avg</div><div class="stat-value">${fmt(ins.daily_avg)}</div></div>`;
+    <div class="card stat-card"><div class="stat-icon">📊</div><div class="stat-label">Daily Avg</div><div class="stat-value">${fmt(ins.daily_avg)}</div></div>
+    <div class="card stat-card" style="border-left:4px solid #ef4444">
+      <div class="stat-icon">🔴</div><div class="stat-label">Most Expensive Day</div>
+      <div class="stat-value" style="font-size:1rem">${mostDay !== '—' ? fmtDate(mostDay) : '—'}</div>
+      <div style="font-size:.85rem;color:#ef4444;font-weight:800">${mostAmt ? fmt(mostAmt) : ''}</div>
+    </div>
+    <div class="card stat-card" style="border-left:4px solid #22c55e">
+      <div class="stat-icon">🟢</div><div class="stat-label">Least Expensive Day</div>
+      <div class="stat-value" style="font-size:1rem">${leastDay !== '—' ? fmtDate(leastDay) : '—'}</div>
+      <div style="font-size:.85rem;color:#22c55e;font-weight:800">${leastAmt !== Infinity ? fmt(leastAmt) : ''}</div>
+    </div>`;
+
   const tableEl = document.getElementById('analytics-cat-table');
   if (!data.categories.length) { tableEl.innerHTML = '<div class="empty-state"><div class="empty-icon">📊</div><p>No data for this month</p></div>'; return; }
   tableEl.innerHTML = `<table class="ana-cat-table" style="width:100%">
@@ -363,7 +409,39 @@ function openAddModal(isSub = false) {
   if (isSub) { document.getElementById('exp-is-sub').checked = true; document.getElementById('recurrence-group').style.display = ''; }
   else document.getElementById('recurrence-group').style.display = 'none';
   populateCategorySelects();
+  renderQuickAddCategory();
   document.getElementById('expense-modal').classList.add('open');
+}
+
+function renderQuickAddCategory() {
+  let wrap = document.getElementById('quick-cat-wrap');
+  if (!wrap) return;
+  wrap.innerHTML = `
+    <div class="quick-cat-form" id="quick-cat-toggle-row">
+      <button type="button" class="btn-link" id="toggle-quick-cat">＋ Add new category</button>
+    </div>
+    <div class="quick-cat-inputs" id="quick-cat-inputs" style="display:none">
+      <input type="text" id="qc-name" class="form-input" placeholder="Category name" maxlength="30" style="flex:1"/>
+      <input type="text" id="qc-icon" class="form-input" placeholder="Emoji" maxlength="4" style="width:60px"/>
+      <input type="color" id="qc-color" class="color-input" value="#a0c4ff" title="Color"/>
+      <button type="button" class="btn btn-primary" id="qc-save" style="white-space:nowrap">Save</button>
+    </div>`;
+  document.getElementById('toggle-quick-cat').addEventListener('click', () => {
+    const inp = document.getElementById('quick-cat-inputs');
+    inp.style.display = inp.style.display === 'none' ? 'flex' : 'none';
+  });
+  document.getElementById('qc-save').addEventListener('click', async () => {
+    const name = document.getElementById('qc-name').value.trim();
+    const icon = document.getElementById('qc-icon').value.trim() || '💰';
+    const color = document.getElementById('qc-color').value;
+    if (!name) return showToast('Enter category name', 'error');
+    const newCat = await api('/api/categories', 'POST', { name, icon, color });
+    categories = await api('/api/categories');
+    populateCategorySelects();
+    document.getElementById('exp-category').value = newCat.id;
+    document.getElementById('quick-cat-inputs').style.display = 'none';
+    showToast('Category "' + name + '" added!', 'success');
+  });
 }
 
 async function openEditModal(id) {
